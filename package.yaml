@@ -24,6 +24,10 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - text
+  - microlens-th
+  - config-ini
 
 executables:
   botpaf-exe:
