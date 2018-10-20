@@ -27,6 +27,8 @@ library:
   - text
   - microlens-th
   - config-ini
+  - hookup
+  - irc-core
 
 executables:
   botpaf-exe:
