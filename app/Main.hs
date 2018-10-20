@@ -13,4 +13,5 @@ main = do
   config <- parseConfig "botpaf.ini"
   withConnection config $ \h -> do
     sendHello config h
+    sendJoin (_channels config) h
     eventLoop config h
