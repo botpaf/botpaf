@@ -25,7 +25,7 @@ library:
   source-dirs: src
   dependencies:
   - text
-  - microlens-th
+  - microlens-platform
   - config-ini
   - hookup
   - irc-core

@@ -11,7 +11,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 
-import Lens.Micro.TH (makeLenses)
+import Lens.Micro.Platform ( makeLenses )
 import Data.Ini.Config.Bidir
 
 data Config = Config
