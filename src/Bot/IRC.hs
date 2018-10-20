@@ -15,11 +15,14 @@ import Control.Exception
 import Hookup
 
 import Irc.Message   ( IrcMsg(..), cookIrcMsg )
-import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg )
+import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgTags )
 
 import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
 
+import Lens.Micro.Platform ( (^.) )
+
 import Bot.IRC.Config
+import Bot.IRC.Msg
 
 withConnection :: Config -> (Connection -> IO a) -> IO a
 withConnection config = bracket (connect $ mkParams config) close
@@ -38,13 +41,14 @@ withConnection config = bracket (connect $ mkParams config) close
 
 -- TODO handle exceptions?
 -- https://hackage.haskell.org/package/hookup-0.2.2/docs/Hookup.html#v:recvLine
-readIrcLine :: Connection -> IO (Maybe IrcMsg)
+readIrcLine :: Connection -> IO (Maybe Msg)
 readIrcLine c = do
   mb <- recvLine c 1024 -- RFC 1459 «512 for tags + 512 for standard msg»
   for mb $ \xs -> do
     Text.putStrLn $ Text.decodeUtf8 xs
     case parseRawIrcMsg (asUtf8 xs) of
-      Just msg -> return $! cookIrcMsg msg
+      Just msg -> return $! Msg { _tags = msg ^. msgTags
+                                , _msg  = cookIrcMsg msg }
       Nothing -> fail "Server sent invalid message"
 
 sendMsg :: Connection -> RawIrcMsg -> IO ()
@@ -84,6 +88,6 @@ eventLoop config h = do
   for_ mb $ \msg -> do
     print msg
     case msg of
-      Ping xs -> sendMsg h (ircPong xs)
-      _       -> pure ()
+      Msg _ (Ping xs) -> sendMsg h (ircPong xs)
+      _               -> pure ()
     eventLoop config h
