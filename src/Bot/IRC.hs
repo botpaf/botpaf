@@ -16,7 +16,7 @@ import Hookup
 import Irc.Message   ( IrcMsg(..), cookIrcMsg )
 import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg )
 
-import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong )
+import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
 
 import Bot.IRC.Config
 
@@ -56,6 +56,10 @@ sendHello config h = do
   sendMsg h (ircCapReq ["twitch.tv/commands"])
   sendMsg h (ircPass $ _token config)
   sendMsg h (ircNick $ _name config)
+
+sendJoin :: Text -> Connection -> IO ()
+sendJoin channel h = do
+  sendMsg h (ircJoin channel Nothing)
 
 -- test event loop, to be transitioned to action to produce TQueue
 eventLoop :: Config -> Connection -> IO ()
