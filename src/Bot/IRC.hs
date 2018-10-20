@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Bot.IRC where
 
-import Data.Foldable    ( for_ )
+import Data.Foldable    ( for_, foldl' )
 import Data.Traversable ( for )
 
 import Data.Text ( Text )
@@ -57,9 +58,24 @@ sendHello config h = do
   sendMsg h (ircPass $ _token config)
   sendMsg h (ircNick $ _name config)
 
-sendJoin :: Text -> Connection -> IO ()
-sendJoin channel h = do
-  sendMsg h (ircJoin channel Nothing)
+-- groups the channels to join in batches and joins them via a single command
+--   JOIN #foo,#bar,#baz,#quux
+sendJoin :: [Text] -> Connection -> IO ()
+sendJoin channels h = do
+  let css = group (510 - Text.length "JOIN :") channels
+  for_ css $ \cs -> do
+    sendMsg h (ircJoin (Text.intercalate "," cs) Nothing)
+
+  where
+
+    group max channels =
+      case foldl' (collect max) (0,[],[]) channels of
+        (l, xs, xss) | l > 0     -> xs:xss
+                     | otherwise -> xss
+
+    collect max (l,xs,xss) x@(Text.length -> lx)
+      | l+lx <= max = ( l + lx, x : xs,          xss )
+      | otherwise   = (      0,     [], (x:xs) : xss )
 
 -- test event loop, to be transitioned to action to produce TQueue
 eventLoop :: Config -> Connection -> IO ()
