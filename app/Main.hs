@@ -16,10 +16,11 @@ import Bot.Config
 
 import Twitch.IRC
 
-data Bot = Bot
-  { ircMessages :: TQueue RawIrcMsg
-  , ircAsync :: Maybe (Async ())
-  }
+data Bot
+  = Bot
+    { ircMessages :: TQueue RawIrcMsg
+    , ircAsync :: Maybe (Async ())
+    }
 
 main :: IO ()
 main = do
