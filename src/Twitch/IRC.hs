@@ -9,6 +9,9 @@ module Twitch.IRC
   , RawIrcMsg
   , msgCommand
   , msgParams
+  , tagKey
+  , tagVal
+  , (.!)
   , renderMsg
   , sendMsg
   ) where
@@ -21,16 +24,18 @@ import Data.List.Extra  ( chunksOf )
 
 import           Data.Text                  ( Text )
 import qualified Data.Text          as Text
-import qualified Data.Text.IO       as Text ( putStrLn )
+-- import qualified Data.Text.IO       as Text ( putStrLn )
 
 import Control.Exception
 
 import Control.Concurrent.STM ( atomically, TQueue, writeTQueue )
 
+import Lens.Micro.Platform ( (^..), (^.), to, each, filtered )
+
 import           Hookup           hiding ( connect )
 import qualified Hookup as Hookup
 
-import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgCommand, msgParams )
+import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgCommand, msgParams, msgTags, TagEntry(..) )
 import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
 
 import Bot.Config
@@ -62,7 +67,7 @@ readIrcLine :: Connection -> IO (Maybe RawIrcMsg)
 readIrcLine h = do
   mb <- recvLine h 1024 -- RFC 1459 «512 for tags + 512 for standard msg»
   for mb $ \xs -> do
-    Text.putStrLn $ "RAW: " <> asUtf8 xs
+    -- Text.putStrLn $ "RAW: " <> asUtf8 xs
     case parseRawIrcMsg (asUtf8 xs) of
       Just msg -> return $! msg
       Nothing -> fail "Server sent invalid message"
@@ -105,3 +110,11 @@ collectMsgs config h tchan = do
       "PING" -> sendMsg config h $ ircPong $ msg ^. msgParams
       _      -> atomically $ writeTQueue tchan msg
     collectMsgs config h tchan
+
+tagKey, tagVal :: TagEntry -> Text
+tagKey (TagEntry k _) = k
+tagVal (TagEntry _ v) = v
+
+(.!) :: RawIrcMsg -> Text -> Text
+m .! tagName = m ^. msgTags
+  ^.. each . filtered ((tagName ==) . tagKey) ^. each . to tagVal
