@@ -5,14 +5,12 @@
 -- Use Twitch.IRCv3
 
 module Twitch.IRC
-  ( RawIrcMsg
+  ( connect
+  , RawIrcMsg
   , msgCommand
   , msgParams
   , renderMsg
   , sendMsg
-  , withConnection
-  , registerAndJoin
-  , collectMsgs
   ) where
 
 import Data.Foldable    ( for_ )
@@ -29,15 +27,24 @@ import Control.Exception
 
 import Control.Concurrent.STM ( atomically, TQueue, writeTQueue )
 
-import Hookup
+import           Hookup           hiding ( connect )
+import qualified Hookup as Hookup
 
 import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgCommand, msgParams )
 import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
 
 import Bot.Config
 
+connect :: BotConfig
+        -> TQueue RawIrcMsg
+        -> IO ()
+connect config tchan = do
+  withConnection config $ \h -> do
+    registerAndJoin config h
+    collectMsgs config h tchan
+
 withConnection :: BotConfig -> (Connection -> IO a) -> IO a
-withConnection config = bracket (connect $ mkParams config) close
+withConnection config = bracket (Hookup.connect $ mkParams config) close
   where
     mkParams config = ConnectionParams
       { cpHost = Text.unpack $ config ^. ircConfig . ircHost

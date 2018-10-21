@@ -25,13 +25,10 @@ data Bot
 main :: IO ()
 main = do
   config <- getBotConfig "botpaf.ini"
-  withConnection config $ \h -> do
-    tchan <- newTQueueIO
-    registerAndJoin config h
-    thread <- async $ collectMsgs config h tchan
-    main' Bot
-      { ircMessages = tchan
-      , ircAsync = Just thread }
+  tchan  <- newTQueueIO
+  thread <- async $ connect config tchan
+  main' Bot
+    { ircMessages = tchan , ircAsync = Just thread }
 
 getEvent :: Bot -> IO RawIrcMsg
 getEvent = atomically . readTQueue . ircMessages
