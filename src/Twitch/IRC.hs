@@ -6,6 +6,8 @@
 
 module Twitch.IRC
   ( RawIrcMsg
+  , msgCommand
+  , msgParams
   , renderMsg
   , sendMsg
   , withConnection
@@ -22,7 +24,6 @@ import Data.List.Extra  ( chunksOf )
 import           Data.Text                  ( Text )
 import qualified Data.Text          as Text
 import qualified Data.Text.IO       as Text ( putStrLn )
-import qualified Data.Text.Encoding as Text ( decodeUtf8 )
 
 import Control.Exception
 
@@ -54,7 +55,7 @@ readIrcLine :: Connection -> IO (Maybe RawIrcMsg)
 readIrcLine h = do
   mb <- recvLine h 1024 -- RFC 1459 «512 for tags + 512 for standard msg»
   for mb $ \xs -> do
-    Text.putStrLn $ "RAW: " <> Text.decodeUtf8 xs
+    Text.putStrLn $ "RAW: " <> asUtf8 xs
     case parseRawIrcMsg (asUtf8 xs) of
       Just msg -> return $! msg
       Nothing -> fail "Server sent invalid message"
