@@ -30,6 +30,7 @@ library:
   - hookup
   - irc-core
   - stm
+  - async
 
 executables:
   botpaf-exe:
