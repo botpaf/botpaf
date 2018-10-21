@@ -3,3 +3,4 @@ botpaf.cabal
 botpaf.ini
 *~
 *.swp
+.env
