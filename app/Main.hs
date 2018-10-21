@@ -9,16 +9,18 @@ import qualified Data.Text.IO as Text
 
 -- import Control.Monad ( when )
 
+import Lens.Micro.Platform ( (&), (^..) )
+
 import Control.Concurrent.Async ( Async, async )
 import Control.Concurrent.STM ( atomically, TQueue, newTQueueIO, readTQueue )
 
 import Bot.Config
 
-import Twitch.IRC
+import Twitch.IRCv32
 
 data Bot
   = Bot
-    { ircMessages :: TQueue RawIrcMsg
+    { ircMessages :: TQueue Message
     , ircAsync :: Maybe (Async ())
     }
 
@@ -30,30 +32,31 @@ main = do
   main' Bot
     { ircMessages = tchan , ircAsync = Just thread }
 
-getEvent :: Bot -> IO RawIrcMsg
+getEvent :: Bot -> IO Message
 getEvent = atomically . readTQueue . ircMessages
 
 main' :: Bot -> IO ()
 main' bot = do
   ev <- getEvent bot
-  case ev ^. msgCommand of
-    "PRIVMSG" -> resume =<< doMsg bot ev
-    _         -> main' =<< doEchoRawMsg bot ev
+  case ev of
+    Privmsg _ _ _ _ -> resume =<< doMsg bot ev
+    _               ->  main' =<< doEchoRawMsg bot ev
   where
     resume Nothing     = pure ()
     resume (Just bot') = main' bot'
 
-doEchoRawMsg :: Bot -> RawIrcMsg -> IO Bot
+doEchoRawMsg :: Bot -> Message -> IO Bot
 doEchoRawMsg bot msg = do
-  Text.putStr $ "BOT: " <> renderMsg msg
+  Text.putStrLn $ "NoParse: " <> (msg & show & Text.pack)
   return bot
 
-doMsg :: Bot -> RawIrcMsg -> IO (Maybe Bot)
+doMsg :: Bot -> Message -> IO (Maybe Bot)
 doMsg bot msg = do
-  let [room,text] = msg ^. msgParams
+  let [room,text] = msg ^.. (msgRoom . roomName <> msgText)
   if ("!quit" `Text.isPrefixOf` text)
   then do
     Text.putStrLn $ "received quit signal in " <> room
     return Nothing
-  else
+  else do
+    Text.putStrLn $ "Parsed: " <> (Text.pack $ show msg)
     return $ Just bot

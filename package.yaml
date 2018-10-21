@@ -46,6 +46,7 @@ executables:
     dependencies:
     - botpaf
     - text
+    - microlens-platform
     - stm
     - async
 
