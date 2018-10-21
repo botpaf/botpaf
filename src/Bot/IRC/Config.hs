@@ -3,15 +3,22 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Bot.IRC.Config
-  ( Config(..)
+  ( Config
   , parseConfig
+  -- lenses
+  , host
+  , port
+  , name
+  , token
+  , channels
+  , (^.)
   ) where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 
-import Lens.Micro.Platform ( makeLenses )
+import Lens.Micro.Platform ( makeLenses, (^.) )
 import Data.Ini.Config.Bidir
 
 data Config = Config

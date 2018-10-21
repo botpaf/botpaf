@@ -28,8 +28,8 @@ withConnection :: Config -> (Connection -> IO a) -> IO a
 withConnection config = bracket (connect $ mkParams config) close
   where
     mkParams config = ConnectionParams
-      { cpHost = Text.unpack $ _host config
-      , cpPort = fromIntegral $ _port config
+      { cpHost = Text.unpack $ config ^. host
+      , cpPort = fromIntegral $ config ^. port
       , cpTls = Just TlsParams { tpClientCertificate = Nothing
                                , tpClientPrivateKey  = Nothing
                                , tpServerCertificate = Nothing
@@ -59,8 +59,8 @@ sendHello config h = do
   sendMsg h (ircCapReq ["twitch.tv/tags"])
   sendMsg h (ircCapReq ["twitch.tv/membership"])
   sendMsg h (ircCapReq ["twitch.tv/commands"])
-  sendMsg h (ircPass $ _token config)
-  sendMsg h (ircNick $ _name config)
+  sendMsg h (ircPass $ config ^. token)
+  sendMsg h (ircNick $ config ^. name)
 
 -- groups the channels to join in batches and joins them via a single command
 --   JOIN #foo,#bar,#baz,#quux
