@@ -4,9 +4,16 @@
 -- This module uses irc-core to connect to the irc network
 -- Use Twitch.IRCv3
 
-module Twitch.IRC where
+module Twitch.IRC
+  ( RawIrcMsg
+  , renderMsg
+  , sendMsg
+  , withConnection
+  , registerAndJoin
+  , collectMsgs
+  ) where
 
-import Data.Foldable    ( for_, foldl' )
+import Data.Foldable    ( for_ )
 import Data.Traversable ( for )
 
 import Data.Semigroup   ( Sum(..) )
@@ -19,19 +26,14 @@ import qualified Data.Text.Encoding as Text ( decodeUtf8 )
 
 import Control.Exception
 
+import Control.Concurrent.STM ( atomically, TQueue, writeTQueue )
+
 import Hookup
 
-import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgTags, msgCommand, msgParams )
+import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgCommand, msgParams )
 import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
 
 import Bot.Config
-
-run :: BotConfig -> IO ()
-run config = withConnection config $ \h -> do
-  return ()
-  -- sendHello config h
-  -- sendJoin (config ^. channels) h
-  -- eventLoop config h
 
 withConnection :: BotConfig -> (Connection -> IO a) -> IO a
 withConnection config = bracket (connect $ mkParams config) close
@@ -78,12 +80,20 @@ sendJoin config h = do
   for_ css $ \cs -> do
     sendMsg config h (ircJoin (Text.intercalate "," cs) Nothing)
 
--- test event loop, to be transitioned to action to produce TQueue
-eventLoop :: BotConfig -> Connection -> IO ()
-eventLoop config h = do
+registerAndJoin :: BotConfig -> Connection -> IO ()
+registerAndJoin config h = do
+  sendHello config h
+  sendJoin config h
+
+renderMsg :: RawIrcMsg -> Text
+renderMsg = asUtf8 . renderRawIrcMsg
+
+collectMsgs :: BotConfig -> Connection -> TQueue RawIrcMsg -> IO ()
+collectMsgs config h tchan = do
   mb <- readIrcLine h
   for_ mb $ \msg -> do
+    -- handle PING/PONG and relay all the rest
     case msg ^. msgCommand of
-      "PING" -> sendMsg config h (ircPong $ msg ^. msgParams)
-      _      -> pure ()
-    eventLoop config h
+      "PING" -> sendMsg config h $ ircPong $ msg ^. msgParams
+      _      -> atomically $ writeTQueue tchan msg
+    collectMsgs config h tchan
