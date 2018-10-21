@@ -29,6 +29,8 @@ library:
   - config-ini
   - hookup
   - irc-core
+  - stm
+  - async
 
 executables:
   botpaf-exe:
@@ -38,9 +40,15 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Wno-name-shadowing
+    - -Werror
     dependencies:
     - botpaf
     - text
+    - microlens-platform
+    - stm
+    - async
 
 tests:
   botpaf-test:
