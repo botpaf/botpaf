@@ -31,7 +31,7 @@ import qualified Data.Text.IO as Text ( readFile )
 
 import Control.Exception ( IOException, try )
 
-import Lens.Micro.Platform ( makeLenses, view, set, (^.), (.~) )
+import Lens.Micro.Platform ( makeLenses, set, (^.) )
 
 import Data.Ini.Config.Bidir
 
@@ -59,6 +59,7 @@ configSpec = do
     ircConfig . ircToken .= field "token" text
     ircConfig . ircRooms .= field "rooms" (listWithSeparator "," text)
 
+defaultConfig :: BotConfig
 defaultConfig = BotConfig
   { _ircConfig = IrcConfig
     { _ircHost  = "default"
