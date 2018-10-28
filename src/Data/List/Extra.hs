@@ -1,39 +1,19 @@
-{-# LANGUAGE ViewPatterns #-}
-
 module Data.List.Extra
-  ( chunksOf
+  ( chunksBy
   ) where
 
-import Data.List ( foldl' )
-
-
--- TODO doesn't work with infinite sequences
---
--- chunksOf is strict in its arguments
---
--- Example:
---
--- > chunksOf (Sum . Text.length) (<=6) $ take 12 $ cycle ["aA"]
+-- > take 4 $ chunksBy (Sum . Text.length) (<=6) $ repeat "aA"
 -- [["aA","aA","aA"],["aA","aA","aA"],["aA","aA","aA"],["aA","aA","aA"]]
---
 
-chunksOf :: (Foldable t, Monoid m)
-         => (a -> m) -> (m -> Bool) -> t a -> [[a]]
-chunksOf f p xs = snd $ foldl' (collect p) (mempty,[]) xs
+-- Build the list of chunks lazily
+-- Build each chunk (strictly?) as a Difference List
 
+chunksBy :: Semigroup g => (a -> g) -> (g -> Bool) -> [a] -> [[a]]
+chunksBy _ _ []     = [[]]
+chunksBy f p (x:xs) = go (f x) (x:) xs
   where
-
-    collect p (m,xss) x@(f -> fx)
-      | p $ m <> fx = ( m <> fx, augment x xss )
-      | otherwise   = (      fx,   begin x xss )
-
-    augment x []       = [[x]]
-    augment x (xs:xss) = (x:xs):xss
-
-    begin x xss = [x]:xss
-
-    -- version with accumulator being a triple
-    --
-    -- collect p (m,xs,xss) x@(f -> fx)
-    --   | p $ m <> fx = ( m <> fx, x:xs,    xss )
-    --   | otherwise   = (      fx,  [x], xs:xss )
+    go _ ys []     = [ys []]
+    go e ys (x:xs) | p e'      =         go e'    (ys . (x:)) xs
+                   | otherwise = ys [] : go (f x) (x:)        xs
+      where
+        e' = e <> f x

@@ -20,7 +20,7 @@ import Data.Foldable    ( for_ )
 import Data.Traversable ( for )
 
 import Data.Semigroup   ( Sum(..) )
-import Data.List.Extra  ( chunksOf )
+import Data.List.Extra  ( chunksBy )
 
 import           Data.Text                  ( Text )
 import qualified Data.Text          as Text
@@ -87,7 +87,7 @@ sendHello config h = do
 
 sendJoin :: BotConfig -> Connection -> IO ()
 sendJoin config h = do
-  let css = chunksOf (Sum . Text.length)
+  let css = chunksBy (Sum . Text.length)
                      (\l -> getSum l <= 510 - Text.length "JOIN :")
                      ((Text.cons '#') <$> config ^. ircConfig . ircRooms)
   for_ css $ \cs -> do
