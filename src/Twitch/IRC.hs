@@ -13,6 +13,7 @@ module Twitch.IRC
   , tagVal
   , (.!)
   , renderMsg
+  , ircPrivmsg
   , sendMsg
   ) where
 
@@ -28,7 +29,8 @@ import qualified Data.Text          as Text
 
 import Control.Exception
 
-import Control.Concurrent.STM ( atomically, TQueue, writeTQueue )
+import Control.Concurrent.STM ( atomically, TQueue, writeTQueue, readTQueue )
+import Control.Concurrent.Async ( race_ )
 
 import Lens.Micro.Platform ( (^..), (^.), to, each, filtered )
 
@@ -36,17 +38,18 @@ import           Hookup           hiding ( connect )
 import qualified Hookup as Hookup
 
 import Irc.RawIrcMsg ( parseRawIrcMsg, asUtf8, RawIrcMsg, renderRawIrcMsg, msgCommand, msgParams, msgTags, TagEntry(..) )
-import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin )
+import Irc.Commands  ( ircCapReq, ircPass, ircNick, ircPong, ircJoin, ircPrivmsg )
 
 import Bot.Config
 
 connect :: BotConfig
         -> TQueue RawIrcMsg
+        -> TQueue RawIrcMsg
         -> IO ()
-connect config tchan = do
+connect config fromIrc toIrc = do
   withConnection config $ \h -> do
     registerAndJoin config h
-    collectMsgs config h tchan
+    race_ (sendMsgs config h toIrc) (collectMsgs config h fromIrc)
 
 withConnection :: BotConfig -> (Connection -> IO a) -> IO a
 withConnection config = bracket (Hookup.connect $ mkParams config) close
@@ -100,6 +103,12 @@ registerAndJoin config h = do
 
 renderMsg :: RawIrcMsg -> Text
 renderMsg = asUtf8 . renderRawIrcMsg
+
+sendMsgs :: BotConfig -> Connection -> TQueue RawIrcMsg -> IO ()
+sendMsgs config h toIrc = do
+  rawIrcMsg <- atomically $ readTQueue toIrc
+  sendMsg config h rawIrcMsg
+  sendMsgs config h toIrc
 
 collectMsgs :: BotConfig -> Connection -> TQueue RawIrcMsg -> IO ()
 collectMsgs config h tchan = do

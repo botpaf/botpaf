@@ -9,7 +9,7 @@ import Data.Text ( Text )
 
 import Lens.Micro.Platform ( makeLenses, view )
 
-import Control.Concurrent.Async ( withAsync )
+import Control.Concurrent.Async ( async, race_, waitEither_ )
 import Control.Concurrent.STM ( atomically, newTQueueIO, TQueue, readTQueue, writeTQueue )
 
 import           Twitch.IRC        ( (.!) )
@@ -50,9 +50,16 @@ data Badge
   = Admin | Bits | Broadcaster | GlobalMod | Moderator | Subscriber | Staff | Turbo
   deriving (Eq, Show)
 
+data Say
+  = Say { _sayRoom :: Text, _sayMsg :: Text }
+  | Whisper { _sayUser :: Text, _sayWhisper :: Text }
+  deriving (Eq, Show)
+
 makeLenses ''Room
 makeLenses ''User
 makeLenses ''Message
+
+makeLenses ''Say
 
 process :: IRC.RawIrcMsg -> Message
 process m@(view IRC.msgCommand -> "PRIVMSG")
@@ -71,13 +78,26 @@ process m@(view IRC.msgCommand -> "PRIVMSG")
             }
 process m = IrcCore m
 
-connect :: BotConfig -> TQueue Message -> IO ()
-connect config tchan = do
-  irc <- newTQueueIO
-  withAsync (IRC.connect config irc) $ const $ relay irc
+connect :: BotConfig -> TQueue Message -> TQueue Say -> IO ()
+connect config fromIrc toIrc = do
+  fromIrcCore <- newTQueueIO
+  toIrcCore   <- newTQueueIO
+
+  t0 <- async $ IRC.connect config fromIrcCore toIrcCore
+  t1 <- async $ race_ (toIrc `processSays` toIrcCore) (relay fromIrcCore)
+
+  waitEither_ t0 t1
 
   where
+
     relay irc = do
-      msg <- atomically . readTQueue $ irc
-      atomically $ writeTQueue tchan $! process msg
+      msg <- atomically $ readTQueue irc
+      atomically $ writeTQueue fromIrc $! process msg
       relay irc
+
+    toIrc `processSays` toIrcCore = do
+      say <- atomically $ readTQueue toIrc
+      case say of
+        Say room text -> atomically $ writeTQueue toIrcCore $ IRC.ircPrivmsg room text
+        _             -> return ()
+      toIrc `processSays` toIrcCore
